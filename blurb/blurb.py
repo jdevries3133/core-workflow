@@ -97,7 +97,6 @@ template = """
 # Don't start with "- Issue #<n>: " or "- bpo-<n>: " or that sort of stuff.
 ###########################################################################
 
-
 """.lstrip()
 
 root = None
@@ -214,6 +213,28 @@ def textwrap_body(body, *, subsequent_indent=''):
         text += "\n"
     return text
 
+def get_git_branch():
+    "of the repository in the current working directory"
+    # TODO: walk up parents until repository is found.
+    if os.path.exists('.git'):
+        try:
+            output = subprocess.check_output(['git', 'branch'], cwd='.')
+            branch_list = output.splitlines()
+        except (subprocess.CalledProcessError, OSError):
+            return ''
+        for branch_name in branch_list:
+            if '*' in branch_name.decode():
+                return branch_name.decode()[2:]
+    else:
+        return ''
+
+def guess_bpo():
+    "bpo# is usually in the git branch name"
+    branch_name = get_git_branch()
+    mo = re.search(r'^bpo-((\d)+)', branch_name, re.IGNORECASE)
+    if mo:
+        return mo[1]
+    return ''
 
 def current_date():
     return time.strftime("%Y-%m-%d", time.localtime())
@@ -876,9 +897,7 @@ def find_editor():
 
 @subcommand
 def add():
-    """
-Add a blurb (a Misc/NEWS entry) to the current CPython repo.
-    """
+    "Add a blurb (a Misc/NEWS entry) to the current CPython repo."
 
     editor = find_editor()
 
@@ -887,20 +906,20 @@ Add a blurb (a Misc/NEWS entry) to the current CPython repo.
     atexit.register(lambda : os.unlink(tmp_path))
 
     def init_tmp_with_template():
+        """On the bpo line, either insert the bpo# taken from the branch name,
+        or ensure there is a whitespace after the bpo prompt."""
         with open(tmp_path, "wt", encoding="utf-8") as file:
-            # hack:
-            # my editor likes to strip trailing whitespace from lines.
-            # normally this is a good idea.  but in the case of the template
-            # it's unhelpful.
-            # so, manually ensure there's a space at the end of the bpo line.
-            text = template
-
-            bpo_line = ".. bpo:"
-            without_space = "\n" + bpo_line + "\n"
-            with_space = "\n" + bpo_line + " \n"
-            if without_space not in text:
+            lines = template.split('\n')
+            try:
+                bpo_line = lines.index(".. bpo:")
+            except ValueError:
                 sys.exit("Can't find BPO line to ensure there's a space on the end!")
-            text = text.replace(without_space, with_space)
+            bpo_num = guess_bpo()
+            if bpo_num:
+                lines[bpo_line] = ".. bpo: {}".format(bpo_num)
+            else:
+                lines[bpo_line] = "..bpo: "  # note intentional trailing whitespace
+            text = '\n'.join(lines)
             file.write(text)
 
     init_tmp_with_template()

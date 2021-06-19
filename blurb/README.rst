@@ -111,8 +111,10 @@ The template for the ``blurb add`` message looks like this::
 
 Here's how you interact with the file:
 
-* Add the ``bugs.python.org`` issue number for this checkin to the
-  end of the ``.. bpo:`` line.
+* If necessary, add the ``bugs.python.org`` issue number for this checkin to the
+  end of the ``.. bpo:`` line. The blurb tool will try to detect the bpo number
+  from your git branch name and auto-fill this part of the template, assuming
+  your branch uses the naming convention ``bpo-<bpo#>...``.
 
 * Uncomment the line with the relevant ``Misc/NEWS`` section for this entry.
   For example, if this should go in the ``Library`` section, uncomment
